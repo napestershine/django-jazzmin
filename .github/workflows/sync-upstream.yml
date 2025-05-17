@@ -1,0 +1,48 @@
+name: Sync Selected Jazzmin PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Upstream PR number to merge'
+        required: true
+        type: string
+
+jobs:
+  open-upstream-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout your fork
+        uses: actions/checkout@v3
+        with:
+          ref: main
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Set up Git config
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/farridav/django-jazzmin.git
+          git fetch upstream
+
+      - name: Fetch and create merge branch
+        run: |
+          git fetch upstream pull/${{ github.event.inputs.pr_number }}/head:merge-pr-${{ github.event.inputs.pr_number }}
+          git checkout -b merge-pr-${{ github.event.inputs.pr_number }} merge-pr-${{ github.event.inputs.pr_number }}
+          git push origin merge-pr-${{ github.event.inputs.pr_number }}
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          title: "Sync upstream PR #${{ github.event.inputs.pr_number }}"
+          body: |
+            This pull request includes upstream PR https://github.com/farridav/django-jazzmin/pull/${{ github.event.inputs.pr_number }}.
+            
+            Please review and merge if compatible.
+          head: merge-pr-${{ github.event.inputs.pr_number }}
+          base: main
